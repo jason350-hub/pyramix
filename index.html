@@ -1,0 +1,2274 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pyramix 3D - 機關金字塔 · 埃及神話立體策略桌遊</title>
+    <meta name="description" content="Pyramix 3D 機關金字塔，以古埃及神話為主題的 3D 立體重力滑落策略桌遊。探索荷魯斯之眼、聖鶴、安卡與眼鏡蛇的神秘機關！">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        egypt: {
+                            gold: '#F59E0B',
+                            goldLight: '#FDE68A',
+                            goldDark: '#B45309',
+                            sand: '#E6C280',
+                            sandDark: '#8C6D37',
+                            lapis: '#1D4ED8',
+                            lapisDark: '#0F172A',
+                            ruby: '#B91C1C',
+                            emerald: '#047857',
+                            obsidian: '#0B0F19',
+                            slateDark: '#090D16'
+                        }
+                    },
+                    fontFamily: {
+                        cinzel: ['Cinzel', 'serif'],
+                        body: ['"Plus Jakarta Sans"', '"Noto Sans TC"', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Three.js and OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- Tween.js for fluid animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+    <!-- FontAwesome 6 Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Noto+Sans+TC:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --gold-gradient: linear-gradient(135deg, #FFE894 0%, #D4AF37 50%, #996515 100%);
+            --gold-glow: 0 0 20px rgba(245, 158, 11, 0.35);
+            --panel-bg: rgba(11, 15, 25, 0.82);
+            --border-gold: rgba(212, 175, 55, 0.28);
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', 'Noto Sans TC', sans-serif;
+            user-select: none;
+            overflow: hidden;
+            background-color: #070a12;
+            color: #f1f5f9;
+        }
+
+        .font-cinzel {
+            font-family: 'Cinzel', serif;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(11, 15, 25, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(212, 175, 55, 0.4);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(245, 158, 11, 0.8);
+        }
+
+        /* Glassmorphism Luxury Panels */
+        .glass-card {
+            background: var(--panel-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-gold);
+            box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.65), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+        }
+
+        .glass-card-interactive {
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .glass-card-interactive:hover {
+            border-color: rgba(245, 158, 11, 0.55);
+            box-shadow: 0 12px 32px 0 rgba(0, 0, 0, 0.8), 0 0 18px rgba(212, 175, 55, 0.25);
+        }
+
+        .gold-text-gradient {
+            background: linear-gradient(135deg, #FFF0B3 0%, #E6C280 40%, #B4842B 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .gold-border-glow {
+            box-shadow: 0 0 25px rgba(212, 175, 55, 0.35);
+        }
+
+        /* Active Player Turn Aura */
+        @keyframes activeGlowPulse {
+            0%, 100% {
+                border-color: rgba(245, 158, 11, 0.95);
+                box-shadow: 0 0 22px rgba(245, 158, 11, 0.5), inset 0 0 12px rgba(245, 158, 11, 0.2);
+            }
+            50% {
+                border-color: rgba(245, 158, 11, 0.35);
+                box-shadow: 0 0 8px rgba(245, 158, 11, 0.2), inset 0 0 4px rgba(245, 158, 11, 0.05);
+            }
+        }
+        .active-turn-card {
+            animation: activeGlowPulse 2.2s infinite ease-in-out;
+        }
+
+        /* Floating Animation */
+        @keyframes floatSlow {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-4px); }
+        }
+        .animate-float {
+            animation: floatSlow 3.5s ease-in-out infinite;
+        }
+
+        /* Shimmer Banner */
+        @keyframes goldShimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        .shimmer-badge {
+            background: linear-gradient(90deg, rgba(212, 175, 55, 0.1) 0%, rgba(212, 175, 55, 0.4) 50%, rgba(212, 175, 55, 0.1) 100%);
+            background-size: 200% 100%;
+            animation: goldShimmer 3s infinite;
+        }
+
+        /* Toggle Switch Styling */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 40px;
+            height: 22px;
+        }
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #1e293b;
+            transition: .3s;
+            border-radius: 22px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 2px;
+            bottom: 2px;
+            background-color: #94a3b8;
+            transition: .3s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #b45309;
+            border-color: #f59e0b;
+        }
+        input:checked + .slider:before {
+            transform: translateX(18px);
+            background-color: #fef08a;
+            box-shadow: 0 0 8px #f59e0b;
+        }
+
+        /* Tooltip custom bubble */
+        .hud-tooltip {
+            pointer-events: none;
+            transition: opacity 0.2s, transform 0.2s;
+        }
+    </style>
+</head>
+<body class="h-full w-full select-none flex flex-col justify-between relative overflow-hidden bg-egypt-obsidian">
+
+    <!-- 3D WebGL Canvas Layer -->
+    <div id="canvas-container" class="absolute inset-0 z-0 cursor-grab active:cursor-grabbing"></div>
+
+    <!-- Vignette / Cinematic Atmosphere Overlay -->
+    <div class="absolute inset-0 pointer-events-none z-[1] bg-[radial-gradient(circle_at_center,transparent_45%,rgba(7,10,18,0.75)_100%)]"></div>
+
+    <!-- ============================================================== -->
+    <!-- TOP HEADER HUD (Brand, Turn Spotlight, System Controls)        -->
+    <!-- ============================================================== -->
+    <header class="relative z-20 px-4 pt-3 pb-2 flex justify-between items-center pointer-events-none gap-2">
+        
+        <!-- Left: Game Brand Cartouche -->
+        <div class="glass-card px-4 py-2 rounded-2xl flex items-center gap-3 pointer-events-auto gold-border-glow border-egypt-gold/40">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-amber-700 flex items-center justify-center shadow-lg text-slate-950 font-cinzel text-xl font-bold animate-float">
+                ▲
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="font-cinzel text-lg md:text-xl font-black tracking-wider gold-text-gradient">PYRAMIX 3D</h1>
+                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">埃及神話版</span>
+                </div>
+                <p class="text-[11px] text-slate-400 font-medium hidden sm:block">機關金字塔 · 重力連鎖立體桌遊</p>
+            </div>
+        </div>
+
+        <!-- Center: Dynamic Turn & Phase Spotlight -->
+        <div id="turn-spotlight" class="glass-card px-5 py-2 rounded-2xl flex items-center gap-3 pointer-events-auto border-amber-500/50 shadow-2xl">
+            <div class="relative flex items-center justify-center">
+                <div id="turn-player-avatar" class="w-10 h-10 rounded-full border-2 border-amber-400 flex items-center justify-center text-lg bg-slate-900 shadow-md">
+                    👑
+                </div>
+                <span id="turn-player-pulse" class="absolute inset-0 rounded-full animate-ping opacity-30 bg-amber-400 pointer-events-none"></span>
+            </div>
+            <div class="text-left">
+                <div class="flex items-center gap-2">
+                    <span class="text-[11px] uppercase tracking-wider text-slate-400 font-bold">當前回合</span>
+                    <span id="current-player-badge" class="text-xs px-2 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">玩家 1</span>
+                </div>
+                <div id="turn-action-hint" class="text-xs text-slate-200 font-semibold flex items-center gap-1.5 mt-0.5">
+                    <i class="fa-solid fa-hand-pointer text-amber-400 text-xs"></i>
+                    <span>請旋轉鏡頭並點選具備 <b class="text-amber-300">2 面以上露出</b> 的方塊</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Utility Controls (Sound, Views, Rules, Settings) -->
+        <div class="flex items-center gap-2 pointer-events-auto">
+            <!-- Audio Mute Button -->
+            <button id="btn-sound-toggle" onclick="toggleAudioMute()" class="glass-card w-10 h-10 rounded-2xl hover:bg-slate-800 transition flex items-center justify-center text-amber-400" title="音效開關">
+                <i id="sound-icon" class="fa-solid fa-volume-high"></i>
+            </button>
+
+            <!-- Ambient BGM Toggle -->
+            <button id="btn-bgm-toggle" onclick="toggleBGM()" class="glass-card w-10 h-10 rounded-2xl hover:bg-slate-800 transition flex items-center justify-center text-slate-400" title="神殿古箏冥想背景音樂開關">
+                <i id="bgm-icon" class="fa-solid fa-music"></i>
+            </button>
+
+            <!-- Highlight Valid Blocks Toggle -->
+            <button id="btn-highlight-toggle" onclick="togglePickableHighlight()" class="glass-card px-3 h-10 rounded-2xl hover:bg-slate-800 transition flex items-center gap-1.5 text-xs font-bold text-amber-300 border-amber-500/30" title="切換可拿取方塊光芒提示">
+                <i class="fa-solid fa-eye text-emerald-400"></i>
+                <span class="hidden md:inline">透視可拿</span>
+            </button>
+
+            <!-- Rules Modal Trigger -->
+            <button onclick="openModal('rules-modal')" class="glass-card w-10 h-10 rounded-2xl hover:bg-slate-800 transition flex items-center justify-center text-amber-300" title="規則與玩法說明">
+                <i class="fa-solid fa-book-open"></i>
+            </button>
+
+            <!-- Settings Modal Trigger -->
+            <button onclick="openModal('settings-modal')" class="glass-card w-10 h-10 rounded-2xl hover:bg-slate-800 transition flex items-center justify-center text-amber-300" title="遊戲設置與擴充模式">
+                <i class="fa-solid fa-sliders"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- ============================================================== -->
+    <!-- MAIN INTERACTIVE STAGE OVERLAY (Left HUD + Right HUD)         -->
+    <!-- ============================================================== -->
+    <main class="relative z-10 flex-1 flex justify-between p-3 md:p-4 pointer-events-none overflow-hidden gap-3">
+        
+        <!-- ================= LEFT HUD: PLAYERS & SCORING ================ -->
+        <aside class="w-80 max-w-[45vw] flex flex-col gap-2.5 pointer-events-auto overflow-y-auto pr-1">
+            
+            <!-- Quick Camera Selector Bar -->
+            <div class="glass-card p-2 rounded-2xl flex items-center justify-between text-xs">
+                <span class="text-slate-400 font-bold px-1.5 flex items-center gap-1"><i class="fa-solid fa-compass text-amber-400"></i> 視角:</span>
+                <div class="grid grid-cols-5 gap-1 flex-1">
+                    <button onclick="setCameraView('front')" class="py-1 rounded-lg bg-slate-900/90 hover:bg-amber-600/30 text-slate-300 hover:text-amber-300 transition text-[11px] font-bold">正面</button>
+                    <button onclick="setCameraView('right')" class="py-1 rounded-lg bg-slate-900/90 hover:bg-amber-600/30 text-slate-300 hover:text-amber-300 transition text-[11px] font-bold">右側</button>
+                    <button onclick="setCameraView('back')" class="py-1 rounded-lg bg-slate-900/90 hover:bg-amber-600/30 text-slate-300 hover:text-amber-300 transition text-[11px] font-bold">背面</button>
+                    <button onclick="setCameraView('left')" class="py-1 rounded-lg bg-slate-900/90 hover:bg-amber-600/30 text-slate-300 hover:text-amber-300 transition text-[11px] font-bold">左側</button>
+                    <button onclick="setCameraView('top')" class="py-1 rounded-lg bg-slate-900/90 hover:bg-amber-600/30 text-slate-300 hover:text-amber-300 transition text-[11px] font-bold">俯瞰</button>
+                </div>
+            </div>
+
+            <!-- Active Pharaoh Skill (If Variant Enabled) -->
+            <div id="variant-skill-panel" class="glass-card p-3 rounded-2xl hidden border-amber-500/40">
+                <div class="flex justify-between items-center mb-1">
+                    <span class="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                        <i class="fa-solid fa-ankh text-amber-400"></i> 法老神力技能 (Pharaoh Power)
+                    </span>
+                    <span id="skill-cd-badge" class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold">就緒</span>
+                </div>
+                <p class="text-[11px] text-slate-300 leading-tight">庇護結界：指定一個方塊鎖定 1 回合，對手無法抽取。</p>
+                <button id="btn-activate-skill" onclick="activatePharaohSkill()" class="mt-2 w-full py-2 rounded-xl bg-gradient-to-r from-amber-600 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-slate-950 font-bold text-xs shadow-md transition flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-shield-halved"></i> 發動神佑護盾
+                </button>
+            </div>
+
+            <!-- Player Scoreboard Cards -->
+            <div class="glass-card p-3 rounded-2xl flex flex-col gap-2">
+                <div class="flex justify-between items-center px-1 border-b border-slate-800/80 pb-1.5">
+                    <div class="text-xs font-bold tracking-wider text-slate-300 flex items-center gap-1.5">
+                        <i class="fa-solid fa-trophy text-amber-400"></i>
+                        <span>法老爭霸榜</span>
+                    </div>
+                    <span class="text-[10px] text-slate-400">56 塊 · 收集集套</span>
+                </div>
+
+                <!-- Dynamic Player List Cards -->
+                <div id="players-list-container" class="flex flex-col gap-2">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
+            <!-- Ankh Color Majority Status (Critical for winning end-game!) -->
+            <div class="glass-card p-3 rounded-2xl space-y-2">
+                <div class="flex justify-between items-center text-xs font-bold text-slate-300">
+                    <span class="flex items-center gap-1.5 text-amber-300">
+                        <i class="fa-solid fa-crown text-amber-400"></i> 安卡領地爭奪 (Ankh Dominance)
+                    </span>
+                    <span class="text-[10px] text-slate-400">尾刀清台加分</span>
+                </div>
+                <p class="text-[10px] text-slate-400 leading-tight">終局時，底座剩餘該顏色的所有方塊將歸屬於該顏色安卡數量最多的玩家！</p>
+                
+                <div class="grid grid-cols-2 gap-1.5 text-[11px]">
+                    <div id="ankh-leader-yellow" class="bg-amber-950/40 border border-amber-600/30 p-2 rounded-xl flex items-center justify-between">
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+                            <span class="text-amber-200 font-bold">太陽金</span>
+                        </div>
+                        <span class="text-slate-400 text-[10px]" id="leader-text-yellow">-</span>
+                    </div>
+                    <div id="ankh-leader-blue" class="bg-blue-950/40 border border-blue-600/30 p-2 rounded-xl flex items-center justify-between">
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+                            <span class="text-blue-200 font-bold">尼羅藍</span>
+                        </div>
+                        <span class="text-slate-400 text-[10px]" id="leader-text-blue">-</span>
+                    </div>
+                    <div id="ankh-leader-red" class="bg-red-950/40 border border-red-600/30 p-2 rounded-xl flex items-center justify-between">
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+                            <span class="text-red-200 font-bold">赤土紅</span>
+                        </div>
+                        <span class="text-slate-400 text-[10px]" id="leader-text-red">-</span>
+                    </div>
+                    <div id="ankh-leader-green" class="bg-emerald-950/40 border border-emerald-600/30 p-2 rounded-xl flex items-center justify-between">
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                            <span class="text-emerald-200 font-bold">孔雀綠</span>
+                        </div>
+                        <span class="text-slate-400 text-[10px]" id="leader-text-green">-</span>
+                    </div>
+                </div>
+            </div>
+
+        </aside>
+
+        <!-- ================= RIGHT HUD: LOGS & QUICK ACTIONS ============ -->
+        <aside class="w-72 max-w-[40vw] flex flex-col justify-between gap-2.5 pointer-events-auto">
+            
+            <!-- Hieroglyph Symbol Score Quick Cheat Sheet -->
+            <div class="glass-card p-3 rounded-2xl text-xs space-y-1.5">
+                <div class="flex justify-between items-center text-slate-300 font-bold border-b border-slate-800/80 pb-1">
+                    <span class="flex items-center gap-1.5 text-amber-300">
+                        <i class="fa-solid fa-shapes text-amber-400"></i> 符文記分法則
+                    </span>
+                    <span class="text-[10px] text-slate-500">點數</span>
+                </div>
+                <div class="grid grid-cols-2 gap-1.5 text-slate-300">
+                    <div class="bg-slate-900/60 p-2 rounded-xl border border-slate-800/80 flex items-center gap-2">
+                        <span class="text-amber-400 font-bold text-base">👁️</span>
+                        <div>
+                            <div class="font-bold text-amber-200 text-[11px]">荷魯斯之眼</div>
+                            <div class="text-[10px] text-amber-400/80 font-semibold">+3 分 (神諭)</div>
+                        </div>
+                    </div>
+                    <div class="bg-slate-900/60 p-2 rounded-xl border border-slate-800/80 flex items-center gap-2">
+                        <span class="text-cyan-400 font-bold text-base">🦩</span>
+                        <div>
+                            <div class="font-bold text-cyan-200 text-[11px]">聖鶴貝努</div>
+                            <div class="text-[10px] text-cyan-400/80 font-semibold">+2 分 (祥瑞)</div>
+                        </div>
+                    </div>
+                    <div class="bg-slate-900/60 p-2 rounded-xl border border-slate-800/80 flex items-center gap-2">
+                        <span class="text-emerald-400 font-bold text-base">☥</span>
+                        <div>
+                            <div class="font-bold text-emerald-200 text-[11px]">安卡生命符</div>
+                            <div class="text-[10px] text-emerald-400/80 font-semibold">+1 分 + 尾刀包底</div>
+                        </div>
+                    </div>
+                    <div class="bg-slate-900/60 p-2 rounded-xl border border-slate-800/80 flex items-center gap-2">
+                        <span class="text-purple-400 font-bold text-base">🐍</span>
+                        <div>
+                            <div class="font-bold text-purple-200 text-[11px]">聖蛇守衛</div>
+                            <div class="text-[10px] text-purple-400/80 font-semibold">0分 (看護四周)</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Egyptian Chronicle / Game Event Log -->
+            <div class="glass-card p-3 rounded-2xl flex flex-col flex-1 min-h-[160px] max-h-[300px]">
+                <div class="flex justify-between items-center text-xs font-bold text-slate-300 border-b border-slate-800/80 pb-1.5 mb-1.5">
+                    <span class="flex items-center gap-1.5 text-amber-300">
+                        <i class="fa-solid fa-scroll text-amber-400"></i> 神殿對局記事
+                    </span>
+                    <button onclick="clearBattleLog()" class="text-[10px] text-slate-500 hover:text-slate-300 transition">清空</button>
+                </div>
+                <div id="battle-chronicle" class="flex-1 overflow-y-auto space-y-1 text-[11px] text-slate-300 pr-1 scroll-smooth">
+                    <div class="text-slate-500 italic py-0.5">• 埃及金字塔已築成，對局正式開始！</div>
+                </div>
+            </div>
+
+            <!-- Tactical Action Bar (Auto Orbit, Undo, Reset) -->
+            <div class="glass-card p-2.5 rounded-2xl space-y-2">
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <button id="btn-auto-orbit" onclick="toggleAutoOrbit()" class="py-2 px-2.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-amber-300 font-bold transition flex items-center justify-center gap-1.5 border border-slate-800">
+                        <i class="fa-solid fa-arrows-spin text-amber-400"></i>
+                        <span>自動旋轉</span>
+                    </button>
+                    <button id="btn-undo-move" onclick="undoLastMove()" class="py-2 px-2.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-amber-300 font-bold transition flex items-center justify-center gap-1.5 border border-slate-800" title="悔棋（上一手）">
+                        <i class="fa-solid fa-rotate-left text-amber-400"></i>
+                        <span>悔棋一步</span>
+                    </button>
+                </div>
+                <button onclick="resetGame()" class="w-full py-2.5 rounded-xl bg-slate-900/90 hover:bg-rose-950/40 text-slate-300 hover:text-rose-300 font-bold text-xs transition flex items-center justify-center gap-2 border border-slate-800">
+                    <i class="fa-solid fa-arrow-rotate-right text-rose-400"></i>
+                    <span>重置對局 (Restart)</span>
+                </button>
+            </div>
+
+        </aside>
+
+    </main>
+
+    <!-- ============================================================== -->
+    <!-- BOTTOM FOOTER & HOVER INSPECTOR HUD                            -->
+    <!-- ============================================================== -->
+    <footer class="relative z-20 px-4 py-3 flex flex-col md:flex-row justify-between items-center pointer-events-none gap-2">
+        
+        <!-- Hover Block Tactical Inspector -->
+        <div id="hover-block-card" class="glass-card px-4 py-2 rounded-2xl pointer-events-auto flex items-center gap-3 border-amber-500/30 opacity-90 transition-all duration-200">
+            <div id="hover-cube-icon" class="w-8 h-8 rounded-lg bg-slate-900 border border-amber-500/40 flex items-center justify-center text-lg">
+                ▲
+            </div>
+            <div class="text-left text-xs">
+                <div class="flex items-center gap-2">
+                    <span id="hover-cube-name" class="font-bold text-amber-300">懸停方塊資訊</span>
+                    <span id="hover-cube-status" class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-400">請移動滑鼠指向方塊</span>
+                </div>
+                <div id="hover-cube-desc" class="text-[11px] text-slate-400 mt-0.5">
+                    左鍵按住拖曳可任意環繞旋轉 · 滾輪縮放視角
+                </div>
+            </div>
+        </div>
+
+        <!-- Floating Toast Messenger -->
+        <div id="toast-pill" class="glass-card px-5 py-2 rounded-full text-xs font-bold text-amber-300 border-amber-500/50 shadow-2xl opacity-0 transition-all duration-300 pointer-events-auto flex items-center gap-2">
+            <i class="fa-solid fa-feather-pointed text-amber-400"></i>
+            <span id="toast-content">歡迎來到 Pyramix 3D！</span>
+        </div>
+
+        <!-- Help Instructions Quick Tag -->
+        <div class="text-[11px] text-slate-500 hidden lg:block">
+            點擊可抽取方塊 · 滑落連鎖觸發加分
+        </div>
+    </footer>
+
+    <!-- ============================================================== -->
+    <!-- MODAL 1: SETTINGS & VARIANTS                                  -->
+    <!-- ============================================================== -->
+    <div id="settings-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center hidden p-4">
+        <div class="glass-card max-w-md w-full rounded-3xl p-6 gold-border-glow border border-amber-500/50 space-y-5 animate-float">
+            <div class="flex justify-between items-center border-b border-slate-800/80 pb-3">
+                <h3 class="font-cinzel text-lg font-bold text-amber-300 flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-amber-400"></i> 對局設定與神話擴充模式
+                </h3>
+                <button onclick="closeModal('settings-modal')" class="text-slate-400 hover:text-slate-100 text-xl font-bold w-8 h-8 rounded-full flex items-center justify-center hover:bg-slate-800 transition">×</button>
+            </div>
+
+            <!-- Player Count Selection -->
+            <div class="space-y-2">
+                <label class="text-xs font-bold text-slate-300 block">對局人數設定 (Player Count)</label>
+                <div class="grid grid-cols-3 gap-2">
+                    <button type="button" onclick="setPlayerCountSetting(2)" id="btn-p2" class="py-2.5 rounded-xl border border-amber-500 bg-amber-500/20 text-amber-300 text-xs font-bold transition">2 人對決</button>
+                    <button type="button" onclick="setPlayerCountSetting(3)" id="btn-p3" class="py-2.5 rounded-xl border border-slate-700 bg-slate-800 text-slate-400 text-xs font-bold transition">3 人混戰</button>
+                    <button type="button" onclick="setPlayerCountSetting(4)" id="btn-p4" class="py-2.5 rounded-xl border border-slate-700 bg-slate-800 text-slate-400 text-xs font-bold transition">4 人群雄</button>
+                </div>
+            </div>
+
+            <!-- AI Opponent & AI Difficulty Selection -->
+            <div class="bg-slate-900/70 p-3.5 rounded-2xl border border-slate-800 space-y-3">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <div class="text-xs font-bold text-amber-200">AI 機器人對手 (AI Bot)</div>
+                        <div class="text-[11px] text-slate-400">開啟後其餘空位由神廟 AI 接管</div>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="ai-enable-toggle" checked onchange="toggleAISetting()">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <!-- AI Difficulty -->
+                <div id="ai-diff-container" class="space-y-1.5 border-t border-slate-800/80 pt-2.5">
+                    <label class="text-[11px] font-bold text-slate-300">AI 智慧難度：</label>
+                    <div class="grid grid-cols-3 gap-1.5 text-xs">
+                        <button type="button" onclick="setAIDifficulty('easy')" id="btn-ai-easy" class="py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 text-[11px] font-bold">學徒 (初級)</button>
+                        <button type="button" onclick="setAIDifficulty('normal')" id="btn-ai-normal" class="py-1.5 rounded-lg border border-amber-500 bg-amber-500/20 text-amber-300 text-[11px] font-bold">大祭司 (中級)</button>
+                        <button type="button" onclick="setAIDifficulty('hard')" id="btn-ai-hard" class="py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 text-[11px] font-bold">法老王 (高階)</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mythological Gameplay Variants -->
+            <div class="space-y-2 border-t border-slate-800/80 pt-3">
+                <div class="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> 埃及神力擴充變體 (Variants)
+                </div>
+
+                <!-- Variant 1: Pharaoh Skills -->
+                <label class="flex items-start gap-3 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700 transition">
+                    <input type="checkbox" id="variant-pharaoh" class="mt-1 accent-amber-500 w-4 h-4 rounded">
+                    <div>
+                        <div class="text-xs font-bold text-amber-200">法老神力護盾 (Pharaoh Divine Shield)</div>
+                        <div class="text-[10px] text-slate-400">每 3 回合可發動一次主動結界，封鎖保護指定方塊不被抽走。</div>
+                    </div>
+                </label>
+
+                <!-- Variant 2: Cascade Combo -->
+                <label class="flex items-start gap-3 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700 transition">
+                    <input type="checkbox" id="variant-combo" checked class="mt-1 accent-amber-500 w-4 h-4 rounded">
+                    <div>
+                        <div class="text-xs font-bold text-cyan-200">重力連鎖加成 (Cascade Combo Bonus)</div>
+                        <div class="text-[10px] text-slate-400">抽取方塊若引發上方多塊同時連鎖滑落，額外獲得幾何連鎖分數！</div>
+                    </div>
+                </label>
+
+                <!-- Variant 3: Secret Sanctuary -->
+                <label class="flex items-start gap-3 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700 transition">
+                    <input type="checkbox" id="variant-secret" class="mt-1 accent-amber-500 w-4 h-4 rounded">
+                    <div>
+                        <div class="text-xs font-bold text-emerald-200">秘密神殿神諭 (Secret Sanctuary Quest)</div>
+                        <div class="text-[10px] text-slate-400">每位玩家開局獲得秘密顏色信仰，結算時該顏色方塊雙倍計分。</div>
+                    </div>
+                </label>
+            </div>
+
+            <button onclick="applySettingsAndRestart()" class="w-full py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-400 hover:to-yellow-500 text-slate-950 font-black text-xs transition shadow-lg tracking-wider">
+                套用設定並開啟新神殿
+            </button>
+        </div>
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- MODAL 2: RULES & STRATEGY GUIDE                                -->
+    <!-- ============================================================== -->
+    <div id="rules-modal" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center hidden p-4">
+        <div class="glass-card max-w-xl w-full rounded-3xl p-6 gold-border-glow border border-amber-500/50 space-y-4 max-h-[85vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                <h3 class="font-cinzel text-lg font-bold text-amber-300 flex items-center gap-2">
+                    <i class="fa-solid fa-scroll text-amber-400"></i> Pyramix (機關金字塔) 規則密卷
+                </h3>
+                <button onclick="closeModal('rules-modal')" class="text-slate-400 hover:text-slate-100 text-xl font-bold w-8 h-8 rounded-full flex items-center justify-center hover:bg-slate-800 transition">×</button>
+            </div>
+
+            <div class="text-xs text-slate-300 space-y-3.5 leading-relaxed">
+                <!-- Goal -->
+                <div class="bg-slate-900/70 p-3.5 rounded-2xl border border-slate-800">
+                    <h4 class="font-bold text-amber-300 text-sm mb-1 flex items-center gap-1.5">
+                        <i class="fa-solid fa-bullseye text-amber-400"></i> 遊戲目標
+                    </h4>
+                    <p>Pyramix 是一座由 56 顆神聖方塊構成的 3 層階梯金字塔（底層 6x6、中層 4x4、頂層 2x2）。玩家輪流從金字塔外圍抽取符合規定的方塊，並在金字塔崩解之際奪得最高神聖積分！</p>
+                </div>
+
+                <!-- 2 Faces Exposure Rule -->
+                <div class="bg-slate-900/70 p-3.5 rounded-2xl border border-slate-800 space-y-1.5">
+                    <h4 class="font-bold text-amber-300 text-sm mb-1 flex items-center gap-1.5">
+                        <i class="fa-solid fa-cube text-amber-400"></i> 抽取條件（2 面暴露原則）
+                    </h4>
+                    <ul class="list-disc list-inside space-y-1 text-slate-300">
+                        <li><b>雙面暴露</b>：欲抽取的方塊，其 5 個面向中（頂部與四個側面）必須有 <b>至少 2 個面完全暴露在空氣中</b>（即未被相鄰未抽取的方塊阻擋）。</li>
+                        <li><b>眼鏡蛇守衛 (🐍)</b>：凡是與眼鏡蛇方塊正向相鄰（前後左右同層）的方塊，均受到聖蛇威懾，<b>不可抽取</b>！</li>
+                        <li><b>底盤固定</b>：方塊位於傾斜底座上，不需擔憂底座受損。</li>
+                    </ul>
+                </div>
+
+                <!-- Gravity Cascade -->
+                <div class="bg-slate-900/70 p-3.5 rounded-2xl border border-slate-800 space-y-1.5">
+                    <h4 class="font-bold text-amber-300 text-sm mb-1 flex items-center gap-1.5">
+                        <i class="fa-solid fa-down-long text-amber-400"></i> 重力連鎖滑落 (Gravity Cascade)
+                    </h4>
+                    <p>當底層或中層的方塊被抽取後，其正上方由它支撐的上層方塊將會<b>順應金字塔斜面自動向下滑落</b>填補空缺！這一重力機關將動態改變金字塔的拓撲結構與四周方塊的露出面。</p>
+                </div>
+
+                <!-- Scoring & Ankh Bonus -->
+                <div class="bg-slate-900/70 p-3.5 rounded-2xl border border-slate-800 space-y-2">
+                    <h4 class="font-bold text-amber-300 text-sm mb-1 flex items-center gap-1.5">
+                        <i class="fa-solid fa-crown text-amber-400"></i> 符號計分與終局尾刀爭霸 (The Ankh Rule)
+                    </h4>
+                    <div class="grid grid-cols-2 gap-2 text-[11px]">
+                        <div class="p-2 rounded-xl bg-slate-950/60 border border-amber-500/20">
+                            <b>👁️ 荷魯斯之眼</b>：<b>3 分</b>（每色僅 1 顆，極珍稀）
+                        </div>
+                        <div class="p-2 rounded-xl bg-slate-950/60 border border-cyan-500/20">
+                            <b>🦩 聖鶴貝努</b>：<b>2 分</b>（每色 3 顆）
+                        </div>
+                        <div class="p-2 rounded-xl bg-slate-950/60 border border-emerald-500/20">
+                            <b>☥ 安卡生命符</b>：<b>1 分</b>（每色 8 顆，主導尾刀）
+                        </div>
+                        <div class="p-2 rounded-xl bg-slate-950/60 border border-purple-500/20">
+                            <b>🐍 聖蛇守衛</b>：<b>0 分</b>（每色 2 顆，戰略阻擋）
+                        </div>
+                    </div>
+                    <div class="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200">
+                        <b>🌟 終局安卡尾刀獎勵：</b>當場上無任何方塊可抽取時對局結束。底座盤面上仍會留存部分無法抽取的孤平方塊。針對 4 種顏色，<b>收集該顏色最多「安卡 (☥)」的玩家，將獨攬底座上該顏色的所有方塊</b>並將其點數全部納入總分！
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="closeModal('rules-modal')" class="w-full py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition">
+                參透天機，回到對局
+            </button>
+        </div>
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- MODAL 3: VICTORY & SETTLEMENT SCREEN                           -->
+    <!-- ============================================================== -->
+    <div id="gameover-modal" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-lg flex items-center justify-center hidden p-4">
+        <div class="glass-card max-w-lg w-full rounded-3xl p-6 gold-border-glow border border-amber-400 text-center space-y-5 animate-float">
+            <div class="text-5xl animate-bounce">👑</div>
+            <div>
+                <h2 class="font-cinzel text-2xl font-black gold-text-gradient tracking-widest">法老榮耀加冕</h2>
+                <p id="winner-announcement" class="text-base font-bold text-slate-200 mt-1">Player 1 統治了神廟金字塔！</p>
+            </div>
+
+            <!-- Score Summary Breakdown -->
+            <div id="final-score-breakdown" class="bg-slate-900/90 p-4 rounded-2xl border border-slate-800 space-y-2 text-left text-xs">
+                <div class="font-bold text-amber-300 border-b border-slate-700 pb-1 mb-2 flex justify-between">
+                    <span>最終得分排名</span>
+                    <span>總積分</span>
+                </div>
+                <!-- Dynamic ranking entries inserted here -->
+            </div>
+
+            <!-- Action buttons -->
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="openModal('rules-modal')" class="py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition">
+                    查看結算規則
+                </button>
+                <button onclick="resetGame(); closeModal('gameover-modal');" class="py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-400 hover:to-yellow-500 text-slate-950 font-black text-xs transition shadow-lg">
+                    再戰一局金字塔
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- JAVASCRIPT GAME ENGINE & 3D GRAPHICS (THREE.JS + TWEEN.JS)     -->
+    <!-- ============================================================== -->
+    <script>
+        /**
+         * PYRAMIX 3D ENGINE & HIEROGLYPHIC LOGIC
+         * Enhanced with procedural Egyptian vector textures, atmospheric lighting,
+         * Web Audio sound effects, smart AI levels, and gravity physics.
+         */
+
+        // --- 1. GAME CONSTANTS & ART THEMES ---
+        const EGYPT_COLORS = [
+            { id: 'yellow', name: '太陽赤金', hex: '#D97706', baseColor: '#B45309', lightColor: '#FDE68A', threeColor: 0xD97706 },
+            { id: 'blue',   name: '尼羅寶藍', hex: '#2563EB', baseColor: '#1E3A8A', lightColor: '#93C5FD', threeColor: 0x2563EB },
+            { id: 'red',    name: '赤土血石', hex: '#DC2626', baseColor: '#991B1B', lightColor: '#FCA5A5', threeColor: 0xDC2626 },
+            { id: 'green',  name: '孔雀瑪瑙', hex: '#059669', baseColor: '#064E3B', lightColor: '#6EE7B7', threeColor: 0x059669 }
+        ];
+
+        const EGYPT_SYMBOLS = {
+            EYE:   { id: 'EYE',   name: '荷魯斯之眼', points: 3, icon: '👁️', countPerColor: 1 },
+            CRANE: { id: 'CRANE', name: '聖鶴貝努',   points: 2, icon: '🦩', countPerColor: 3 },
+            ANKH:  { id: 'ANKH',  name: '安卡生命符', points: 1, icon: '☥',  countPerColor: 8 },
+            COBRA: { id: 'COBRA', name: '聖蛇守衛',   points: 0, icon: '🐍', countPerColor: 2 }
+        };
+
+        const AVATARS = [
+            { icon: '👑', name: '法老圖坦' },
+            { icon: '🐺', name: '阿努比斯' },
+            { icon: '🪞', name: '克麗奧佩脫拉' },
+            { icon: '🦅', name: '荷魯斯之神' }
+        ];
+
+        // Pyramid stepped layer dimensions: Layer 0 (6x6 = 36), Layer 1 (4x4 = 16), Layer 2 (2x2 = 4) => Total 56 blocks
+        const PYRAMID_LAYERS = [6, 4, 2];
+
+        // Global Game Configuration
+        let gameSettings = {
+            playerCount: 2,
+            enableAI: true,
+            aiDifficulty: 'normal', // 'easy', 'normal', 'hard'
+            variantPharaoh: false,
+            variantCombo: true,
+            variantSecret: false,
+            soundMuted: false,
+            bgmPlaying: false,
+            highlightPickable: false,
+            autoOrbit: false
+        };
+
+        // Game State Structure
+        let gameState = {
+            players: [],
+            currentPlayerIndex: 0,
+            blocks: [], // Array of block objects
+            blockMap: {}, // Key: 'L-X-Y'
+            isAnimating: false,
+            gameOver: false,
+            pharaohCooldowns: [0, 0, 0, 0],
+            protectedBlockId: null,
+            history: [] // For undo support
+        };
+
+        // Three.js Globals
+        let scene, camera, renderer, controls;
+        let blockMeshes = new Map(); // blockId -> Mesh
+        let raycaster, mouse;
+        let hoveredMesh = null;
+        let texturesCache = {};
+        let dustParticles = null;
+        let torchLights = [];
+
+        // --- 2. PROCEDURAL HIGH-DEF EGYPTIAN TEXTURES GENERATOR ---
+        /**
+         * Draws high-res (512x512) beveled Egyptian sacred stone textures
+         * with custom vector paths for the 4 Hieroglyphs.
+         */
+        function createEgyptianBlockTexture(colorObj, symbolKey) {
+            const cacheKey = `${colorObj.id}_${symbolKey}`;
+            if (texturesCache[cacheKey]) return texturesCache[cacheKey];
+
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+
+            // 1. Background Sandstone / Gemstone Gradient
+            const radGrad = ctx.createRadialGradient(256, 256, 40, 256, 256, 320);
+            radGrad.addColorStop(0, colorObj.hex);
+            radGrad.addColorStop(0.8, colorObj.baseColor);
+            radGrad.addColorStop(1, '#0b0f19');
+            ctx.fillStyle = radGrad;
+            ctx.fillRect(0, 0, 512, 512);
+
+            // 2. Fine Granite / Marble Vein Details
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+            for (let i = 0; i < 512; i += 12) {
+                ctx.fillRect(0, i, 512, 4);
+            }
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+            for (let i = 6; i < 512; i += 16) {
+                ctx.fillRect(i, 0, 4, 512);
+            }
+
+            // 3. Ornate Golden Egyptian Border Frame
+            ctx.strokeStyle = '#D4AF37';
+            ctx.lineWidth = 22;
+            ctx.strokeRect(16, 16, 480, 480);
+
+            // Inner engraved line
+            ctx.strokeStyle = '#FFE894';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(36, 36, 440, 440);
+
+            // Corner decorative hieroglyphic brackets
+            const cornerSize = 40;
+            ctx.fillStyle = '#FFE894';
+            // Top-left
+            ctx.fillRect(24, 24, cornerSize, 6);
+            ctx.fillRect(24, 24, 6, cornerSize);
+            // Top-right
+            ctx.fillRect(488 - cornerSize, 24, cornerSize, 6);
+            ctx.fillRect(482, 24, 6, cornerSize);
+            // Bottom-left
+            ctx.fillRect(24, 482, cornerSize, 6);
+            ctx.fillRect(24, 488 - cornerSize, 6, cornerSize);
+            // Bottom-right
+            ctx.fillRect(488 - cornerSize, 482, cornerSize, 6);
+            ctx.fillRect(482, 488 - cornerSize, 6, cornerSize);
+
+            // 4. Draw Center Sacred Hieroglyph (Handcrafted Vector Paths)
+            ctx.save();
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+            ctx.shadowBlur = 18;
+            ctx.shadowOffsetX = 4;
+            ctx.shadowOffsetY = 6;
+
+            drawHieroglyphVector(ctx, symbolKey);
+            ctx.restore();
+
+            // 5. Draw Points Badge in top right corner
+            const pts = EGYPT_SYMBOLS[symbolKey].points;
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+            ctx.beginPath();
+            ctx.arc(430, 80, 36, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#D4AF37';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+
+            ctx.fillStyle = '#FFE894';
+            ctx.font = 'bold 32px "Cinzel", serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(pts > 0 ? `+${pts}` : '守', 430, 82);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texturesCache[cacheKey] = texture;
+            return texture;
+        }
+
+        /**
+         * Draws crisp, authentic Egyptian Hieroglyphs using pure Canvas 2D vectors
+         */
+        function drawHieroglyphVector(ctx, symbolKey) {
+            ctx.strokeStyle = '#FFE894';
+            ctx.fillStyle = '#FFE894';
+            ctx.lineWidth = 14;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            if (symbolKey === 'EYE') {
+                // Eye of Horus (Wedjat)
+                // Upper lid
+                ctx.beginPath();
+                ctx.moveTo(130, 256);
+                ctx.bezierCurveTo(190, 170, 320, 170, 382, 256);
+                // Lower lid
+                ctx.bezierCurveTo(320, 320, 190, 320, 130, 256);
+                ctx.stroke();
+
+                // Pupil / Iris
+                ctx.beginPath();
+                ctx.arc(256, 256, 42, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#0F172A';
+                ctx.beginPath();
+                ctx.arc(256, 256, 22, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Eyebrow
+                ctx.strokeStyle = '#FFE894';
+                ctx.lineWidth = 16;
+                ctx.beginPath();
+                ctx.moveTo(140, 190);
+                ctx.bezierCurveTo(200, 120, 310, 120, 375, 185);
+                ctx.stroke();
+
+                // Falcon teardrop & spiral marking below eye
+                ctx.lineWidth = 14;
+                ctx.beginPath();
+                ctx.moveTo(256, 315);
+                ctx.lineTo(256, 395); // vertical drop
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(330, 300);
+                ctx.bezierCurveTo(360, 360, 300, 410, 270, 375); // curved falcon coil
+                ctx.stroke();
+
+            } else if (symbolKey === 'CRANE') {
+                // Sacred Bennu Bird / Crested Crane
+                ctx.lineWidth = 12;
+                ctx.beginPath();
+                // Head and Beak
+                ctx.moveTo(180, 160);
+                ctx.lineTo(120, 165); // sharp beak
+                ctx.moveTo(180, 160);
+                ctx.bezierCurveTo(230, 150, 230, 190, 210, 220); // crown
+                // S-curved graceful neck
+                ctx.bezierCurveTo(190, 250, 180, 280, 220, 320);
+                // Plumage body
+                ctx.bezierCurveTo(280, 340, 340, 360, 380, 320);
+                ctx.bezierCurveTo(360, 380, 260, 400, 210, 370);
+                ctx.stroke();
+
+                // Leg & Water Stand
+                ctx.beginPath();
+                ctx.moveTo(240, 380);
+                ctx.lineTo(240, 440);
+                ctx.moveTo(280, 370);
+                ctx.lineTo(280, 440);
+                // Base ground
+                ctx.moveTo(160, 440);
+                ctx.lineTo(350, 440);
+                ctx.stroke();
+
+                // Sun disc above head
+                ctx.beginPath();
+                ctx.arc(200, 120, 24, 0, Math.PI * 2);
+                ctx.fill();
+
+            } else if (symbolKey === 'ANKH') {
+                // Sacred Ankh (Key of Life)
+                // Top Oval Loop
+                ctx.beginPath();
+                ctx.lineWidth = 18;
+                ctx.ellipse(256, 175, 55, 75, 0, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Horizontal Crossbar
+                ctx.lineWidth = 20;
+                ctx.beginPath();
+                ctx.moveTo(140, 280);
+                ctx.lineTo(372, 280);
+                ctx.stroke();
+
+                // Vertical Shaft
+                ctx.beginPath();
+                ctx.moveTo(256, 270);
+                ctx.lineTo(256, 445);
+                ctx.stroke();
+
+                // Flares at ends
+                ctx.fillStyle = '#FFE894';
+                ctx.fillRect(130, 268, 16, 24);
+                ctx.fillRect(366, 268, 16, 24);
+                ctx.fillRect(244, 435, 24, 16);
+
+            } else if (symbolKey === 'COBRA') {
+                // Royal Uraeus Cobra
+                ctx.lineWidth = 16;
+                // Expanded Hood
+                ctx.beginPath();
+                ctx.moveTo(256, 130);
+                ctx.bezierCurveTo(200, 170, 170, 260, 220, 320);
+                ctx.bezierCurveTo(240, 340, 256, 360, 256, 400);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(256, 130);
+                ctx.bezierCurveTo(312, 170, 342, 260, 292, 320);
+                ctx.bezierCurveTo(272, 340, 256, 360, 256, 400);
+                ctx.stroke();
+
+                // Coiled tail base
+                ctx.beginPath();
+                ctx.arc(256, 420, 50, 0, Math.PI);
+                ctx.stroke();
+
+                // Hood inner ribs
+                ctx.lineWidth = 8;
+                ctx.beginPath();
+                ctx.moveTo(200, 230);
+                ctx.lineTo(312, 230);
+                ctx.moveTo(215, 270);
+                ctx.lineTo(297, 270);
+                ctx.stroke();
+
+                // Cobra head and tongue
+                ctx.fillStyle = '#FFE894';
+                ctx.beginPath();
+                ctx.arc(256, 140, 20, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.strokeStyle = '#EF4444';
+                ctx.lineWidth = 6;
+                ctx.beginPath();
+                ctx.moveTo(256, 120);
+                ctx.lineTo(256, 95);
+                ctx.lineTo(248, 85);
+                ctx.moveTo(256, 95);
+                ctx.lineTo(264, 85);
+                ctx.stroke();
+            }
+        }
+
+        // --- 3. WEB AUDIO SYNTHESIZER (NO EXTERNAL AUDIO FILES NEEDED) ---
+        let audioCtx = null;
+        let bgmOscillators = [];
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playSound(type) {
+            if (gameSettings.soundMuted) return;
+            try {
+                initAudio();
+                const now = audioCtx.currentTime;
+
+                if (type === 'pick') {
+                    // Divine crystal harp pluck
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(440, now);
+                    osc.frequency.exponentialRampToValueAtTime(880, now + 0.18);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.25);
+
+                } else if (type === 'slide') {
+                    // Low stone sliding rumble
+                    const osc = audioCtx.createOscillator();
+                    const filter = audioCtx.createBiquadFilter();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(120, now);
+                    osc.frequency.linearRampToValueAtTime(70, now + 0.35);
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(350, now);
+                    gain.gain.setValueAtTime(0.25, now);
+                    gain.gain.exponentialRampToValueAtTime(0.005, now + 0.35);
+                    osc.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.35);
+
+                } else if (type === 'invalid') {
+                    // Cobra warning hiss / stone bump
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(140, now);
+                    osc.frequency.setValueAtTime(110, now + 0.08);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.22);
+
+                } else if (type === 'ankh') {
+                    // Sacred Ankh bell
+                    const osc1 = audioCtx.createOscillator();
+                    const osc2 = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc1.type = 'sine'; osc2.type = 'triangle';
+                    osc1.frequency.setValueAtTime(587.33, now); // D5
+                    osc2.frequency.setValueAtTime(880, now);    // A5
+                    gain.gain.setValueAtTime(0.25, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+                    osc1.connect(gain); osc2.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc1.start(now); osc2.start(now);
+                    osc1.stop(now + 0.6); osc2.stop(now + 0.6);
+
+                } else if (type === 'victory') {
+                    // Pharaoh coronation fanfare chords
+                    const notes = [293.66, 369.99, 440, 587.33]; // D major
+                    notes.forEach((freq, idx) => {
+                        const osc = audioCtx.createOscillator();
+                        const gain = audioCtx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(freq, now + idx * 0.12);
+                        gain.gain.setValueAtTime(0.2, now + idx * 0.12);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.12 + 0.8);
+                        osc.connect(gain);
+                        gain.connect(audioCtx.destination);
+                        osc.start(now + idx * 0.12);
+                        osc.stop(now + idx * 0.12 + 0.8);
+                    });
+                }
+            } catch (e) {
+                console.warn('Audio playback error', e);
+            }
+        }
+
+        // Ambient Mystical Egyptian Drone Loop (Toggleable)
+        function toggleBGM() {
+            gameSettings.bgmPlaying = !gameSettings.bgmPlaying;
+            const btn = document.getElementById('btn-bgm-toggle');
+            const icon = document.getElementById('bgm-icon');
+
+            if (gameSettings.bgmPlaying) {
+                initAudio();
+                btn.className = "glass-card w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-300 transition flex items-center justify-center border-amber-500/50 shadow";
+                icon.className = "fa-solid fa-music animate-pulse";
+                startAmbientDrone();
+                showToast("已開啟埃及古殿冥想環境音");
+            } else {
+                btn.className = "glass-card w-10 h-10 rounded-2xl hover:bg-slate-800 transition flex items-center justify-center text-slate-400";
+                icon.className = "fa-solid fa-music";
+                stopAmbientDrone();
+                showToast("已暫停環境音");
+            }
+        }
+
+        let bgmInterval = null;
+        function startAmbientDrone() {
+            if (!audioCtx) return;
+            const drone = () => {
+                if (!gameSettings.bgmPlaying) return;
+                const now = audioCtx.currentTime;
+                const chords = [146.83, 220, 293.66, 329.63]; // D, A, D, E (Egyptian modal)
+                const root = chords[Math.floor(Math.random() * chords.length)];
+
+                const osc = audioCtx.createOscillator();
+                const filter = audioCtx.createBiquadFilter();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(root, now);
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(450, now);
+                gain.gain.setValueAtTime(0.001, now);
+                gain.gain.linearRampToValueAtTime(0.04, now + 1.5);
+                gain.gain.linearRampToValueAtTime(0.001, now + 4.5);
+
+                osc.connect(filter);
+                filter.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 4.5);
+            };
+            drone();
+            bgmInterval = setInterval(drone, 4000);
+        }
+
+        function stopAmbientDrone() {
+            if (bgmInterval) {
+                clearInterval(bgmInterval);
+                bgmInterval = null;
+            }
+        }
+
+        function toggleAudioMute() {
+            gameSettings.soundMuted = !gameSettings.soundMuted;
+            const icon = document.getElementById('sound-icon');
+            if (gameSettings.soundMuted) {
+                icon.className = "fa-solid fa-volume-xmark text-slate-500";
+                showToast("已靜音所有音效");
+            } else {
+                icon.className = "fa-solid fa-volume-high text-amber-400";
+                playSound('pick');
+                showToast("音效已開啟");
+            }
+        }
+
+        // --- 4. 3D SCENE, ANCIENT ALTAR & DUST PARTICLES INITIALIZATION ---
+        function init3D() {
+            const container = document.getElementById('canvas-container');
+
+            // 1. Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x070a12);
+            scene.fog = new THREE.FogExp2(0x070a12, 0.026);
+
+            // 2. Camera
+            camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+            // 3. Renderer with high-end PCF soft shadows
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.15;
+            container.appendChild(renderer.domElement);
+
+            // 4. OrbitControls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxPolarAngle = Math.PI / 2 - 0.03; // Never drop below ground
+            controls.minDistance = 6.5;
+            controls.maxDistance = 24;
+
+            // 5. Mythological Temple Lighting
+            // Ambient soft warm sand light
+            const ambientLight = new THREE.AmbientLight(0xffecd0, 0.7);
+            scene.add(ambientLight);
+
+            // Golden Sun Key Light (Directional)
+            const sunLight = new THREE.DirectionalLight(0xfff3db, 1.35);
+            sunLight.position.set(14, 22, 12);
+            sunLight.castShadow = true;
+            sunLight.shadow.mapSize.width = 2048;
+            sunLight.shadow.mapSize.height = 2048;
+            sunLight.shadow.camera.near = 0.5;
+            sunLight.shadow.camera.far = 60;
+            sunLight.shadow.camera.left = -10;
+            sunLight.shadow.camera.right = 10;
+            sunLight.shadow.camera.top = 10;
+            sunLight.shadow.camera.bottom = -10;
+            sunLight.shadow.bias = -0.0005;
+            scene.add(sunLight);
+
+            // Mystic central overhead beacon light
+            const skyPoint = new THREE.PointLight(0xd4af37, 1.2, 18);
+            skyPoint.position.set(0, 10, 0);
+            scene.add(skyPoint);
+
+            // 4 Temple Corner Torches with animated flicker
+            const torchCoords = [
+                { x: 4.8, z: 4.8 },
+                { x: -4.8, z: 4.8 },
+                { x: 4.8, z: -4.8 },
+                { x: -4.8, z: -4.8 }
+            ];
+            torchLights = [];
+            torchCoords.forEach(c => {
+                const torchLight = new THREE.PointLight(0xff7711, 0.7, 8);
+                torchLight.position.set(c.x, 0.5, c.z);
+                scene.add(torchLight);
+                torchLights.push(torchLight);
+
+                // Small decorative golden brazier mesh
+                const brazierGeo = new THREE.CylinderGeometry(0.25, 0.15, 0.6, 8);
+                const brazierMat = new THREE.MeshStandardMaterial({ color: 0xD4AF37, metalness: 0.8, roughness: 0.3 });
+                const brazier = new THREE.Mesh(brazierGeo, brazierMat);
+                brazier.position.set(c.x, -0.3, c.z);
+                scene.add(brazier);
+            });
+
+            // 6. Raycaster & Pointer
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            // 7. Ancient Altar Pedestal & Cosmic Dust Motes
+            buildAncientAltar();
+            buildCosmicSandDust();
+
+            // 8. Default Camera Angle
+            setCameraView('front');
+
+            // 9. Event Listeners
+            window.addEventListener('resize', onWindowResize);
+            renderer.domElement.addEventListener('pointermove', onPointerMove);
+            renderer.domElement.addEventListener('pointerdown', onPointerDown);
+
+            // 10. Start Animation Loop
+            animate();
+        }
+
+        // Build Multi-Tier Carved Sandstone & Gold Pedestal
+        function buildAncientAltar() {
+            const altarGroup = new THREE.Group();
+
+            // Stepped base 1 (Bottom wide stone slab)
+            const slab1Geo = new THREE.BoxGeometry(9.6, 0.6, 9.6);
+            const slab1Mat = new THREE.MeshStandardMaterial({
+                color: 0x141b2d,
+                roughness: 0.65,
+                metalness: 0.35
+            });
+            const slab1 = new THREE.Mesh(slab1Geo, slab1Mat);
+            slab1.position.y = -0.7;
+            slab1.receiveShadow = true;
+            altarGroup.add(slab1);
+
+            // Stepped base 2 (Middle Obsidian & Gold inlaid tray)
+            const slab2Geo = new THREE.BoxGeometry(8.5, 0.4, 8.5);
+            const slab2Mat = new THREE.MeshStandardMaterial({
+                color: 0x0f172a,
+                roughness: 0.3,
+                metalness: 0.7
+            });
+            const slab2 = new THREE.Mesh(slab2Geo, slab2Mat);
+            slab2.position.y = -0.3;
+            slab2.receiveShadow = true;
+            altarGroup.add(slab2);
+
+            // Gold Egyptian Perimeter Bevel Rim
+            const rimGeo = new THREE.BoxGeometry(8.65, 0.15, 8.65);
+            const rimMat = new THREE.MeshStandardMaterial({
+                color: 0xD4AF37,
+                roughness: 0.2,
+                metalness: 0.9
+            });
+            const rim = new THREE.Mesh(rimGeo, rimMat);
+            rim.position.y = -0.15;
+            altarGroup.add(rim);
+
+            // Glowing Boundary Guidelines on the Tray
+            const lineMat = new THREE.LineBasicMaterial({ color: 0xF59E0B, transparent: true, opacity: 0.4 });
+            const lineGeo = new THREE.BufferGeometry();
+            const pts = [
+                new THREE.Vector3(-3.8, -0.08, -3.8), new THREE.Vector3(3.8, -0.08, -3.8),
+                new THREE.Vector3(3.8, -0.08, 3.8), new THREE.Vector3(-3.8, -0.08, 3.8),
+                new THREE.Vector3(-3.8, -0.08, -3.8)
+            ];
+            lineGeo.setFromPoints(pts);
+            const boundaryLine = new THREE.Line(lineGeo, lineMat);
+            altarGroup.add(boundaryLine);
+
+            // Vast Desert Floor with starry ground
+            const groundGeo = new THREE.PlaneGeometry(160, 160);
+            const groundMat = new THREE.MeshStandardMaterial({
+                color: 0x05070e,
+                roughness: 0.95,
+                metalness: 0.1
+            });
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.rotation.x = -Math.PI / 2;
+            ground.position.y = -1.0;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            scene.add(altarGroup);
+        }
+
+        // Floating Gold Sand Dust Particles
+        function buildCosmicSandDust() {
+            const particleCount = 450;
+            const geo = new THREE.BufferGeometry();
+            const positions = new Float32Array(particleCount * 3);
+
+            for (let i = 0; i < particleCount * 3; i += 3) {
+                positions[i] = (Math.random() - 0.5) * 20;
+                positions[i + 1] = Math.random() * 12 - 1;
+                positions[i + 2] = (Math.random() - 0.5) * 20;
+            }
+
+            geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+            const mat = new THREE.PointsMaterial({
+                color: 0xFDE68A,
+                size: 0.08,
+                transparent: true,
+                opacity: 0.65,
+                blending: THREE.AdditiveBlending
+            });
+
+            dustParticles = new THREE.Points(geo, mat);
+            scene.add(dustParticles);
+        }
+
+        // Camera Angle Switching with TWEEN
+        function setCameraView(view) {
+            const duration = 900;
+            let targetPos = { x: 0, y: 7.2, z: 12.5 };
+
+            switch(view) {
+                case 'front': targetPos = { x: 0, y: 7.2, z: 12.5 }; break;
+                case 'right': targetPos = { x: 12.5, y: 7.2, z: 0 }; break;
+                case 'back':  targetPos = { x: 0, y: 7.2, z: -12.5 }; break;
+                case 'left':  targetPos = { x: -12.5, y: 7.2, z: 0 }; break;
+                case 'top':   targetPos = { x: 0.01, y: 15.5, z: 0.1 }; break;
+            }
+
+            new TWEEN.Tween(camera.position)
+                .to(targetPos, duration)
+                .easing(TWEEN.Easing.Cubic.Out)
+                .start();
+
+            new TWEEN.Tween(controls.target)
+                .to({ x: 0, y: 1.2, z: 0 }, duration)
+                .easing(TWEEN.Easing.Cubic.Out)
+                .start();
+        }
+
+        function toggleAutoOrbit() {
+            gameSettings.autoOrbit = !gameSettings.autoOrbit;
+            controls.autoRotate = gameSettings.autoOrbit;
+            controls.autoRotateSpeed = 1.2;
+
+            const btn = document.getElementById('btn-auto-orbit');
+            if (gameSettings.autoOrbit) {
+                btn.className = "py-2 px-2.5 rounded-xl bg-amber-500/20 text-amber-300 font-bold transition flex items-center justify-center gap-1.5 border border-amber-500/50 shadow";
+                showToast("已啟動自動環繞展示視角");
+            } else {
+                btn.className = "py-2 px-2.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-amber-300 font-bold transition flex items-center justify-center gap-1.5 border border-slate-800";
+                showToast("已停止自動環繞");
+            }
+        }
+
+        // --- 5. GAME INITIALIZATION & 3D MESH GENERATION ---
+        function initGame() {
+            // Setup Players
+            gameState.players = [];
+            const pColors = ['#D97706', '#2563EB', '#DC2626', '#059669'];
+
+            for (let i = 0; i < gameSettings.playerCount; i++) {
+                const avatar = AVATARS[i % AVATARS.length];
+                gameState.players.push({
+                    id: i,
+                    name: `法老 ${i + 1}` + (i > 0 && gameSettings.enableAI ? ' (AI)' : ''),
+                    avatar: avatar.icon,
+                    title: avatar.name,
+                    isAI: i > 0 && gameSettings.enableAI,
+                    color: pColors[i],
+                    score: 0,
+                    inventory: { EYE: 0, CRANE: 0, ANKH: 0, COBRA: 0 },
+                    colorInventory: { yellow: 0, blue: 0, red: 0, green: 0 },
+                    secretTargetColor: EGYPT_COLORS[i % EGYPT_COLORS.length].id
+                });
+            }
+
+            gameState.currentPlayerIndex = 0;
+            gameState.gameOver = false;
+            gameState.isAnimating = false;
+            gameState.pharaohCooldowns = [0, 0, 0, 0];
+            gameState.protectedBlockId = null;
+            gameState.history = [];
+
+            // Generate 56-block Sacred Pyramid Pool
+            // 4 Colors * (1 Eye + 3 Crane + 8 Ankh + 2 Cobra = 14) = 56 Total
+            let pool = [];
+            EGYPT_COLORS.forEach(c => {
+                Object.keys(EGYPT_SYMBOLS).forEach(sKey => {
+                    const sym = EGYPT_SYMBOLS[sKey];
+                    for (let i = 0; i < sym.countPerColor; i++) {
+                        pool.push({
+                            colorObj: c,
+                            color: c.id,
+                            symbol: sym.id,
+                            points: sym.points
+                        });
+                    }
+                });
+            });
+
+            // True random shuffle (Fisher-Yates)
+            for (let i = pool.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [pool[i], pool[j]] = [pool[j], pool[i]];
+            }
+
+            // Remove existing meshes from Three.js scene
+            blockMeshes.forEach(mesh => scene.remove(mesh));
+            blockMeshes.clear();
+            gameState.blocks = [];
+            gameState.blockMap = {};
+
+            // Build Pyramix 3D Step Structure
+            let poolIndex = 0;
+            PYRAMID_LAYERS.forEach((size, layer) => {
+                for (let x = 0; x < size; x++) {
+                    for (let y = 0; y < size; y++) {
+                        const item = pool[poolIndex++];
+                        const blockObj = {
+                            id: `B_${layer}_${x}_${y}_${Math.random().toString(36).substr(2, 5)}`,
+                            layer: layer,
+                            x: x,
+                            y: y,
+                            color: item.color,
+                            colorObj: item.colorObj,
+                            symbol: item.symbol,
+                            points: item.points,
+                            isRemoved: false
+                        };
+
+                        gameState.blocks.push(blockObj);
+                        gameState.blockMap[`${layer}-${x}-${y}`] = blockObj;
+
+                        // Spawn Three.js 3D Mesh
+                        createBlockMesh(blockObj);
+                    }
+                }
+            });
+
+            // Update UI & Battle Chronicle
+            updateUI();
+            logBattleChronicle("🏛️ 埃及金字塔 56 顆神聖方塊已依古法隨機砌合！");
+            showToast("金字塔已築成，願眾神庇佑您的選擇！");
+
+            // Check if First Turn is AI
+            checkAITurn();
+        }
+
+        // Coordinate Mapping: (Layer, X, Y) -> World Vector3(x, y, z)
+        function gridToWorldPos(layer, x, y) {
+            const blockSize = 1.05;
+            const gap = 0.05;
+            const step = blockSize + gap;
+
+            const gridSize = PYRAMID_LAYERS[layer]; // 6, 4, 2
+            const offset = ((gridSize - 1) * step) / 2;
+
+            const worldX = x * step - offset;
+            const worldZ = y * step - offset;
+            const worldY = layer * step + 0.52;
+
+            return { x: worldX, y: worldY, z: worldZ };
+        }
+
+        // Instantiate 3D Block Mesh
+        function createBlockMesh(blockObj) {
+            const texture = createEgyptianBlockTexture(blockObj.colorObj, blockObj.symbol);
+            const geometry = new THREE.BoxGeometry(1.05, 1.05, 1.05);
+
+            // Rich standard material with slight bevel metallic sheen
+            const material = new THREE.MeshStandardMaterial({
+                map: texture,
+                roughness: 0.35,
+                metalness: 0.25
+            });
+
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            mesh.userData = { blockId: blockObj.id };
+
+            const pos = gridToWorldPos(blockObj.layer, blockObj.x, blockObj.y);
+            mesh.position.set(pos.x, pos.y, pos.z);
+
+            scene.add(mesh);
+            blockMeshes.set(blockObj.id, mesh);
+        }
+
+        // --- 6. CORE LOGIC ENGINE: 2-FACE EXPOSURE & COBRA RULE ---
+        /**
+         * Pyramix Rule:
+         * 1. A block must have AT LEAST 2 exposed faces to air (Top, Left, Right, Front, Back).
+         * 2. Cannot be guarded by adjacent unremoved Cobra on the same layer.
+         * 3. Cannot be locked by active Pharaoh shield.
+         */
+        function isBlockPickable(block) {
+            if (!block || block.isRemoved) return false;
+            if (gameState.protectedBlockId === block.id) return false;
+
+            // 1. Cobra Guard Check
+            if (isGuardedByCobra(block)) return false;
+
+            // 2. Exposed Faces Check
+            let exposedFaces = 0;
+            const directions = [
+                { dl: 1, dx: 0, dy: 0 },  // Top
+                { dl: 0, dx: 1, dy: 0 },  // Right
+                { dl: 0, dx: -1, dy: 0 }, // Left
+                { dl: 0, dx: 0, dy: 1 },  // Front
+                { dl: 0, dx: 0, dy: -1 }  // Back
+            ];
+
+            directions.forEach(d => {
+                const targetL = block.layer + d.dl;
+                const targetX = block.x + d.dx;
+                const targetY = block.y + d.dy;
+
+                // If target coordinate is beyond layer boundary, that face is exposed!
+                if (targetL >= PYRAMID_LAYERS.length ||
+                    targetX < 0 || targetX >= PYRAMID_LAYERS[block.layer] ||
+                    targetY < 0 || targetY >= PYRAMID_LAYERS[block.layer]) {
+                    exposedFaces++;
+                } else {
+                    const neighbor = gameState.blockMap[`${targetL}-${targetX}-${targetY}`];
+                    if (!neighbor || neighbor.isRemoved) {
+                        exposedFaces++;
+                    }
+                }
+            });
+
+            return exposedFaces >= 2;
+        }
+
+        // Check orthogonal neighbors on same layer for unremoved Cobra
+        function isGuardedByCobra(block) {
+            const neighbors = [
+                { dx: 1, dy: 0 }, { dx: -1, dy: 0 },
+                { dx: 0, dy: 1 }, { dx: 0, dy: -1 }
+            ];
+
+            for (let n of neighbors) {
+                const nx = block.x + n.dx;
+                const ny = block.y + n.dy;
+                const key = `${block.layer}-${nx}-${ny}`;
+                const neighbor = gameState.blockMap[key];
+
+                if (neighbor && !neighbor.isRemoved && neighbor.symbol === 'COBRA') {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Count exact exposed faces for tactical inspector
+        function countExposedFaces(block) {
+            let count = 0;
+            const directions = [
+                { dl: 1, dx: 0, dy: 0 },
+                { dl: 0, dx: 1, dy: 0 },
+                { dl: 0, dx: -1, dy: 0 },
+                { dl: 0, dx: 0, dy: 1 },
+                { dl: 0, dx: 0, dy: -1 }
+            ];
+            directions.forEach(d => {
+                const targetL = block.layer + d.dl;
+                const targetX = block.x + d.dx;
+                const targetY = block.y + d.dy;
+                if (targetL >= PYRAMID_LAYERS.length ||
+                    targetX < 0 || targetX >= PYRAMID_LAYERS[block.layer] ||
+                    targetY < 0 || targetY >= PYRAMID_LAYERS[block.layer]) {
+                    count++;
+                } else {
+                    const neighbor = gameState.blockMap[`${targetL}-${targetX}-${targetY}`];
+                    if (!neighbor || neighbor.isRemoved) count++;
+                }
+            });
+            return count;
+        }
+
+        // --- 7. POINTER HOVER, INSPECTOR HUD & SELECTION ---
+        function onPointerMove(event) {
+            if (gameState.isAnimating || gameState.gameOver) return;
+
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(Array.from(blockMeshes.values()));
+
+            if (intersects.length > 0) {
+                const mesh = intersects[0].object;
+                if (hoveredMesh !== mesh) {
+                    resetHoveredMesh();
+                    hoveredMesh = mesh;
+
+                    const blockId = mesh.userData.blockId;
+                    const block = gameState.blocks.find(b => b.id === blockId);
+
+                    if (block && !block.isRemoved) {
+                        const canPick = isBlockPickable(block);
+                        const isCobraGuarded = isGuardedByCobra(block);
+                        const exposed = countExposedFaces(block);
+
+                        // Visual hover glow
+                        mesh.scale.set(1.08, 1.08, 1.08);
+                        mesh.material.emissive.setHex(canPick ? 0x22c55e : (isCobraGuarded ? 0xa855f7 : 0xef4444));
+                        mesh.material.emissiveIntensity = 0.55;
+
+                        document.body.style.cursor = canPick ? 'pointer' : 'not-allowed';
+
+                        // Update Bottom Inspector HUD
+                        updateInspectorHUD(block, canPick, isCobraGuarded, exposed);
+                    }
+                }
+            } else {
+                resetHoveredMesh();
+                document.body.style.cursor = 'default';
+                resetInspectorHUD();
+            }
+        }
+
+        function resetHoveredMesh() {
+            if (hoveredMesh) {
+                // If highlightPickable is on, keep pickable blocks glowing
+                const blockId = hoveredMesh.userData.blockId;
+                const block = gameState.blocks.find(b => b.id === blockId);
+
+                hoveredMesh.scale.set(1, 1, 1);
+                if (gameSettings.highlightPickable && block && isBlockPickable(block)) {
+                    hoveredMesh.material.emissive.setHex(0xeab308);
+                    hoveredMesh.material.emissiveIntensity = 0.4;
+                } else {
+                    hoveredMesh.material.emissive.setHex(0x000000);
+                    hoveredMesh.material.emissiveIntensity = 0;
+                }
+                hoveredMesh = null;
+            }
+        }
+
+        function updateInspectorHUD(block, canPick, isCobraGuarded, exposed) {
+            const card = document.getElementById('hover-block-card');
+            const icon = document.getElementById('hover-cube-icon');
+            const name = document.getElementById('hover-cube-name');
+            const status = document.getElementById('hover-cube-status');
+            const desc = document.getElementById('hover-cube-desc');
+
+            const sym = EGYPT_SYMBOLS[block.symbol];
+            icon.innerText = sym.icon;
+            icon.style.borderColor = block.colorObj.hex;
+            name.innerText = `[${block.colorObj.name}] ${sym.name} (+${sym.points}分)`;
+
+            if (canPick) {
+                status.className = "px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40";
+                status.innerText = `✓ 可抽取 (${exposed} 面露空)`;
+                desc.innerText = "點擊以抽取此方塊，納入法老收藏並引發可能之上層連鎖滑落！";
+            } else if (isCobraGuarded) {
+                status.className = "px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40";
+                status.innerText = "✕ 聖蛇看護中";
+                desc.innerText = "此方塊與眼鏡蛇正向相鄰，受守衛威懾無法抽取！";
+            } else if (gameState.protectedBlockId === block.id) {
+                status.className = "px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40";
+                status.innerText = "✕ 神力結界聖佑中";
+                desc.innerText = "受法老神力庇護，本回合禁止抽取。";
+            } else {
+                status.className = "px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40";
+                status.innerText = `✕ 露空面不足 (${exposed}/2 面)`;
+                desc.innerText = "周圍包覆太緊密，必須先抽取相鄰方塊使其至少有 2 面暴露！";
+            }
+        }
+
+        function resetInspectorHUD() {
+            document.getElementById('hover-cube-icon').innerText = '▲';
+            document.getElementById('hover-cube-icon').style.borderColor = '#d4af37';
+            document.getElementById('hover-cube-name').innerText = '懸停方塊資訊';
+            document.getElementById('hover-cube-status').className = 'px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-400';
+            document.getElementById('hover-cube-status').innerText = '請移動滑鼠指向方塊';
+            document.getElementById('hover-cube-desc').innerText = '左鍵拖曳環繞視角 · 滾輪縮放 · 點擊綠色方塊抽取';
+        }
+
+        function togglePickableHighlight() {
+            gameSettings.highlightPickable = !gameSettings.highlightPickable;
+            const btn = document.getElementById('btn-highlight-toggle');
+
+            if (gameSettings.highlightPickable) {
+                btn.className = "glass-card px-3 h-10 rounded-2xl bg-amber-500/20 text-amber-300 transition flex items-center gap-1.5 text-xs font-bold border-amber-500/50 shadow";
+                showToast("透視已開啟：可拿取方塊已金光常駐");
+            } else {
+                btn.className = "glass-card px-3 h-10 rounded-2xl hover:bg-slate-800 transition flex items-center gap-1.5 text-xs font-bold text-amber-300 border-amber-500/30";
+                showToast("透視已關閉");
+            }
+            refreshPickableGlows();
+        }
+
+        function refreshPickableGlows() {
+            blockMeshes.forEach((mesh, id) => {
+                const block = gameState.blocks.find(b => b.id === id);
+                if (block && !block.isRemoved) {
+                    if (gameSettings.highlightPickable && isBlockPickable(block)) {
+                        mesh.material.emissive.setHex(0xeab308);
+                        mesh.material.emissiveIntensity = 0.4;
+                    } else if (mesh !== hoveredMesh) {
+                        mesh.material.emissive.setHex(0x000000);
+                        mesh.material.emissiveIntensity = 0;
+                    }
+                }
+            });
+        }
+
+        function onPointerDown(event) {
+            if (gameState.isAnimating || gameState.gameOver) return;
+            const curPlayer = gameState.players[gameState.currentPlayerIndex];
+            if (curPlayer.isAI) return;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(Array.from(blockMeshes.values()));
+
+            if (intersects.length > 0) {
+                const mesh = intersects[0].object;
+                const blockId = mesh.userData.blockId;
+                const block = gameState.blocks.find(b => b.id === blockId);
+
+                if (block && !block.isRemoved) {
+                    if (isBlockPickable(block)) {
+                        executePlayerPick(block);
+                    } else {
+                        playSound('invalid');
+                        const isCobra = isGuardedByCobra(block);
+                        if (isCobra) {
+                            showToast("❌ 抽取失敗：該方塊受眼鏡蛇護衛，無法動彈！");
+                        } else {
+                            showToast("❌ 抽取失敗：露空面未達 2 面，請先移除周邊阻礙！");
+                        }
+                    }
+                }
+            }
+        }
+
+        // --- 8. EXECUTION, GRAVITY CASCADE & PARTICLE BURST ---
+        function executePlayerPick(block) {
+            gameState.isAnimating = true;
+            resetHoveredMesh();
+            playSound('pick');
+
+            const player = gameState.players[gameState.currentPlayerIndex];
+            const mesh = blockMeshes.get(block.id);
+
+            // Record snapshot for undo (if not AI)
+            if (!player.isAI) {
+                gameState.history.push({
+                    blockId: block.id,
+                    layer: block.layer,
+                    x: block.x,
+                    y: block.y,
+                    playerIdx: gameState.currentPlayerIndex,
+                    points: block.points,
+                    symbol: block.symbol,
+                    color: block.color
+                });
+            }
+
+            // Mark removed in state
+            block.isRemoved = true;
+            delete gameState.blockMap[`${block.layer}-${block.x}-${block.y}`];
+
+            // Update player inventory & score
+            player.inventory[block.symbol]++;
+            player.colorInventory[block.color]++;
+            player.score += block.points;
+
+            const sym = EGYPT_SYMBOLS[block.symbol];
+            logBattleChronicle(`${player.avatar} <b>${player.name}</b> 抽取了 [${block.colorObj.name}] 的 ${sym.icon} ${sym.name} (+${block.points}分)`);
+
+            if (block.symbol === 'ANKH') {
+                playSound('ankh');
+            }
+
+            // Divine extraction animation (Hover up, glow, shrink)
+            mesh.material.emissive.setHex(0xffea00);
+            mesh.material.emissiveIntensity = 0.8;
+
+            new TWEEN.Tween(mesh.position)
+                .to({ y: mesh.position.y + 2.2 }, 360)
+                .easing(TWEEN.Easing.Back.Out)
+                .chain(
+                    new TWEEN.Tween(mesh.scale)
+                        .to({ x: 0, y: 0, z: 0 }, 240)
+                        .onComplete(() => {
+                            scene.remove(mesh);
+                            // Execute Gravity Cascade Physics
+                            processGravityCascades();
+                        })
+                )
+                .start();
+        }
+
+        /**
+         * Pyramix Gravity Cascade Engine:
+         * Higher layer blocks slide diagonally downwards to fill empty lower slots along the base incline.
+         */
+        function processGravityCascades() {
+            let movedAny = false;
+            let cascadeCount = 0;
+
+            // Iterate layers from Layer 1 up to Layer 2
+            for (let l = 1; l < PYRAMID_LAYERS.length; l++) {
+                for (let x = 0; x < PYRAMID_LAYERS[l]; x++) {
+                    for (let y = 0; y < PYRAMID_LAYERS[l]; y++) {
+                        const block = gameState.blockMap[`${l}-${x}-${y}`];
+                        if (block && !block.isRemoved) {
+                            // In Pyramix geometry, (l, x, y) is supported by (l-1, x+1, y+1)
+                            const targetL = l - 1;
+                            const targetX = x + 1;
+                            const targetY = y + 1;
+                            const targetKey = `${targetL}-${targetX}-${targetY}`;
+
+                            if (!gameState.blockMap[targetKey]) {
+                                // Vacancy found! Slide down
+                                delete gameState.blockMap[`${l}-${x}-${y}`];
+                                block.layer = targetL;
+                                block.x = targetX;
+                                block.y = targetY;
+                                gameState.blockMap[targetKey] = block;
+
+                                const newPos = gridToWorldPos(targetL, targetX, targetY);
+                                const mesh = blockMeshes.get(block.id);
+
+                                playSound('slide');
+                                new TWEEN.Tween(mesh.position)
+                                    .to({ x: newPos.x, y: newPos.y, z: newPos.z }, 420)
+                                    .easing(TWEEN.Easing.Cubic.InOut)
+                                    .start();
+
+                                movedAny = true;
+                                cascadeCount++;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Variant: Cascade Combo Bonus
+            if (movedAny && gameSettings.variantCombo) {
+                const curPlayer = gameState.players[gameState.currentPlayerIndex];
+                const comboBonus = cascadeCount * 2;
+                curPlayer.score += comboBonus;
+                logBattleChronicle(`✨ 觸發幾何連鎖滑落！${curPlayer.name} 獲得 +${comboBonus} 額外連鎖分！`);
+                showToast(`連鎖滑落！+${comboBonus} 連鎖加成！`);
+            }
+
+            setTimeout(() => {
+                updateUI();
+                refreshPickableGlows();
+                checkNextTurn();
+            }, movedAny ? 520 : 200);
+        }
+
+        // --- 9. TURN CYCLING, AI BEHAVIOR & END-GAME SETTLEMENT ---
+        function checkNextTurn() {
+            // Check if game has ended (no valid moves remain on board)
+            const pickableBlocks = gameState.blocks.filter(b => !b.isRemoved && isBlockPickable(b));
+
+            if (pickableBlocks.length === 0) {
+                triggerEndGame();
+                return;
+            }
+
+            // Advance to next player
+            gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
+            gameState.isAnimating = false;
+            gameState.protectedBlockId = null;
+
+            // Reduce Pharaoh cooldown
+            if (gameState.pharaohCooldowns[gameState.currentPlayerIndex] > 0) {
+                gameState.pharaohCooldowns[gameState.currentPlayerIndex]--;
+            }
+
+            updateUI();
+            checkAITurn();
+        }
+
+        /**
+         * Intelligent AI Opponent (3 Difficulties)
+         */
+        function checkAITurn() {
+            const curPlayer = gameState.players[gameState.currentPlayerIndex];
+            if (curPlayer.isAI && !gameState.gameOver) {
+                logBattleChronicle(`🤖 ${curPlayer.name} 正在審視星象與神像...`);
+
+                setTimeout(() => {
+                    const validMoves = gameState.blocks.filter(b => !b.isRemoved && isBlockPickable(b));
+                    if (validMoves.length === 0) {
+                        checkNextTurn();
+                        return;
+                    }
+
+                    let chosenBlock = null;
+
+                    if (gameSettings.aiDifficulty === 'easy') {
+                        // Random pick
+                        chosenBlock = validMoves[Math.floor(Math.random() * validMoves.length)];
+
+                    } else if (gameSettings.aiDifficulty === 'normal') {
+                        // Greedy: Highest points
+                        validMoves.sort((a, b) => b.points - a.points);
+                        chosenBlock = validMoves[0];
+
+                    } else if (gameSettings.aiDifficulty === 'hard') {
+                        // Pharaoh level: Considers Ankh dominance on remaining blocks of that color!
+                        validMoves.sort((a, b) => {
+                            const aScore = a.points + (a.symbol === 'ANKH' ? 2.5 : 0);
+                            const bScore = b.points + (b.symbol === 'ANKH' ? 2.5 : 0);
+                            return bScore - aScore;
+                        });
+                        chosenBlock = validMoves[0];
+                    }
+
+                    if (chosenBlock) {
+                        executePlayerPick(chosenBlock);
+                    }
+                }, 900);
+            }
+        }
+
+        // --- 10. ANKH ENDGAME MAJORITY & FINAL SCORING ---
+        function triggerEndGame() {
+            gameState.gameOver = true;
+            gameState.isAnimating = false;
+            playSound('victory');
+
+            logBattleChronicle("🏁 金字塔已無可抽取之石！對局結束，展開安卡 (Ankh) 終局領地角逐！");
+
+            const remainingBlocks = gameState.blocks.filter(b => !b.isRemoved);
+            let ankhConquestNotes = [];
+
+            // ANKH DOMINANCE RESOLUTION
+            EGYPT_COLORS.forEach(c => {
+                const colorRemaining = remainingBlocks.filter(b => b.color === c.id);
+                if (colorRemaining.length > 0) {
+                    let maxAnkh = -1;
+                    let winner = null;
+                    let isTie = false;
+
+                    gameState.players.forEach(p => {
+                        const count = p.colorInventory[c.id] || 0;
+                        if (count > maxAnkh) {
+                            maxAnkh = count;
+                            winner = p;
+                            isTie = false;
+                        } else if (count === maxAnkh && count > 0) {
+                            isTie = true;
+                        }
+                    });
+
+                    if (winner && maxAnkh > 0 && !isTie) {
+                        const bonusScore = colorRemaining.reduce((sum, b) => sum + b.points, 0);
+                        winner.score += bonusScore;
+                        ankhConquestNotes.push(`${winner.name} 憑藉最多 [${c.name}] 安卡 (${maxAnkh}個)，獨攬底座剩餘 ${colorRemaining.length} 顆方塊 (+${bonusScore}分)`);
+                    } else if (isTie) {
+                        ankhConquestNotes.push(`[${c.name}] 安卡數量平手，底座剩餘方塊歸入神廟殿堂，無人得利。`);
+                    }
+                }
+            });
+
+            // Variant Secret Sanctuary Evaluation
+            if (gameSettings.variantSecret) {
+                gameState.players.forEach(p => {
+                    const count = p.colorInventory[p.secretTargetColor] || 0;
+                    const bonus = count * 2;
+                    p.score += bonus;
+                    ankhConquestNotes.push(`${p.name} 達成秘密神殿神諭 (信仰色 ${p.secretTargetColor})：獲得 +${bonus} 額外分`);
+                });
+            }
+
+            // Determine Champion
+            gameState.players.sort((a, b) => b.score - a.score);
+            const champion = gameState.players[0];
+
+            document.getElementById('winner-announcement').innerText = `🏆 恭喜 ${champion.avatar} ${champion.name} 以 ${champion.score} 分問鼎最高法老！`;
+
+            const summaryBox = document.getElementById('final-score-breakdown');
+            summaryBox.innerHTML = gameState.players.map((p, idx) => `
+                <div class="flex justify-between items-center py-1.5 border-b border-slate-800/80 ${idx === 0 ? 'text-amber-300 font-black text-sm' : 'text-slate-300'}">
+                    <div class="flex items-center gap-2">
+                        <span class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${idx === 0 ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-400'}">${idx + 1}</span>
+                        <span>${p.avatar} ${p.name}</span>
+                    </div>
+                    <span class="font-cinzel font-bold text-base text-amber-400">${p.score} 分</span>
+                </div>
+            `).join('') + `
+                <div class="pt-2 text-[11px] text-slate-400 space-y-1">
+                    <div class="font-bold text-amber-300">安卡終局爭霸結算：</div>
+                    ${ankhConquestNotes.map(n => `<div>• ${n}</div>`).join('')}
+                </div>
+            `;
+
+            openModal('gameover-modal');
+        }
+
+        // --- 11. UNDO MOVE FUNCTIONALITY ---
+        function undoLastMove() {
+            if (gameState.history.length === 0 || gameState.isAnimating) {
+                showToast("無可悔棋之步驟！");
+                return;
+            }
+
+            const last = gameState.history.pop();
+            const block = gameState.blocks.find(b => b.id === last.blockId);
+            const player = gameState.players[last.playerIdx];
+
+            if (block) {
+                block.isRemoved = false;
+                block.layer = last.layer;
+                block.x = last.x;
+                block.y = last.y;
+                gameState.blockMap[`${last.layer}-${last.x}-${last.y}`] = block;
+
+                // Deduct score & inventory
+                player.score -= last.points;
+                player.inventory[last.symbol]--;
+                player.colorInventory[last.color]--;
+
+                // Re-spawn mesh
+                createBlockMesh(block);
+                gameState.currentPlayerIndex = last.playerIdx;
+
+                updateUI();
+                refreshPickableGlows();
+                logBattleChronicle(`↩️ ${player.name} 悔棋一步，金字塔時間回溯。`);
+                showToast("已成功悔棋一步！");
+            }
+        }
+
+        // --- 12. PHARAOH SKILL VARIANT ---
+        function activatePharaohSkill() {
+            if (!gameSettings.variantPharaoh) return;
+            const curIdx = gameState.currentPlayerIndex;
+            if (gameState.pharaohCooldowns[curIdx] > 0) {
+                showToast("法老技能尚在冷卻中！");
+                return;
+            }
+
+            const validBlocks = gameState.blocks.filter(b => !b.isRemoved && isBlockPickable(b));
+            if (validBlocks.length > 0) {
+                const target = validBlocks[Math.floor(Math.random() * validBlocks.length)];
+                gameState.protectedBlockId = target.id;
+                gameState.pharaohCooldowns[curIdx] = 3;
+
+                logBattleChronicle(`⚡ ${gameState.players[curIdx].name} 降下法老庇護，聖佑封鎖了方塊！`);
+                showToast("神力已降臨！該方塊本回合免受抽取！");
+                updateUI();
+                refreshPickableGlows();
+            }
+        }
+
+        // --- 13. UI & SCOREBOARD SYNCHRONIZATION ---
+        function updateUI() {
+            const curPlayer = gameState.players[gameState.currentPlayerIndex];
+
+            // Turn Banner Spotlight
+            document.getElementById('turn-player-avatar').innerText = curPlayer.avatar;
+            document.getElementById('current-player-badge').innerText = curPlayer.name;
+            document.getElementById('current-player-badge').style.color = curPlayer.color;
+
+            // Update Pharaoh Skill Panel
+            const skillPanel = document.getElementById('variant-skill-panel');
+            if (gameSettings.variantPharaoh) {
+                skillPanel.classList.remove('hidden');
+                const cd = gameState.pharaohCooldowns[gameState.currentPlayerIndex];
+                document.getElementById('skill-cd-badge').innerText = cd > 0 ? `冷卻中 (${cd}回)` : '就緒';
+                document.getElementById('btn-activate-skill').disabled = cd > 0;
+            } else {
+                skillPanel.classList.add('hidden');
+            }
+
+            // Render Player List Cards
+            const container = document.getElementById('players-list-container');
+            container.innerHTML = gameState.players.map((p, idx) => {
+                const isActive = idx === gameState.currentPlayerIndex;
+                return `
+                    <div class="p-3 rounded-2xl bg-slate-900/70 border ${isActive ? 'active-turn-card border-amber-400 bg-slate-900/90' : 'border-slate-800/80'} transition-all">
+                        <div class="flex justify-between items-center mb-1.5">
+                            <div class="flex items-center gap-2">
+                                <span class="text-base">${p.avatar}</span>
+                                <div>
+                                    <div class="font-bold text-xs ${isActive ? 'text-amber-200' : 'text-slate-300'} flex items-center gap-1.5">
+                                        <span>${p.name}</span>
+                                        ${isActive ? '<span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>' : ''}
+                                    </div>
+                                    <div class="text-[10px] text-slate-500">${p.title}</div>
+                                </div>
+                            </div>
+                            <span class="font-cinzel font-black text-sm text-amber-400">${p.score} 分</span>
+                        </div>
+                        <!-- Collected Symbol Counts -->
+                        <div class="grid grid-cols-4 gap-1 text-[11px] text-slate-300 bg-slate-950/60 p-1.5 rounded-xl text-center border border-slate-800/50">
+                            <span title="荷魯斯之眼 (+3)">👁️ ${p.inventory.EYE}</span>
+                            <span title="聖鶴 (+2)">🦩 ${p.inventory.CRANE}</span>
+                            <span title="安卡 (+1)">☥ ${p.inventory.ANKH}</span>
+                            <span title="眼鏡蛇 (0)">🐍 ${p.inventory.COBRA}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Update Ankh Leaderboard Indicators
+            updateAnkhLeaderIndicators();
+        }
+
+        function updateAnkhLeaderIndicators() {
+            EGYPT_COLORS.forEach(c => {
+                let max = -1;
+                let leader = null;
+                gameState.players.forEach(p => {
+                    const count = p.colorInventory[c.id] || 0;
+                    if (count > max && count > 0) {
+                        max = count;
+                        leader = p;
+                    }
+                });
+
+                const textEl = document.getElementById(`leader-text-${c.id}`);
+                if (textEl) {
+                    textEl.innerText = leader ? `${leader.name} (${max}個)` : '暫無優勢';
+                    textEl.className = leader ? 'text-amber-300 font-bold text-[10px]' : 'text-slate-500 text-[10px]';
+                }
+            });
+        }
+
+        function logBattleChronicle(msg) {
+            const box = document.getElementById('battle-chronicle');
+            const entry = document.createElement('div');
+            entry.className = "py-0.5 border-b border-slate-800/40 leading-relaxed";
+            entry.innerHTML = `• ${msg}`;
+            box.appendChild(entry);
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function clearBattleLog() {
+            document.getElementById('battle-chronicle').innerHTML = '<div class="text-slate-500 italic py-0.5">• 對局記事已清空</div>';
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast-pill');
+            document.getElementById('toast-content').innerText = msg;
+            toast.classList.remove('opacity-0');
+            setTimeout(() => {
+                toast.classList.add('opacity-0');
+            }, 2600);
+        }
+
+        // --- 14. MODAL & SETTINGS CONTROLLERS ---
+        function openModal(id) {
+            document.getElementById(id).classList.remove('hidden');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+
+        function setPlayerCountSetting(count) {
+            gameSettings.playerCount = count;
+            [2, 3, 4].forEach(n => {
+                const btn = document.getElementById(`btn-p${n}`);
+                if (n === count) {
+                    btn.className = "py-2.5 rounded-xl border border-amber-500 bg-amber-500/20 text-amber-300 text-xs font-bold transition";
+                } else {
+                    btn.className = "py-2.5 rounded-xl border border-slate-700 bg-slate-800 text-slate-400 text-xs font-bold transition";
+                }
+            });
+        }
+
+        function toggleAISetting() {
+            gameSettings.enableAI = document.getElementById('ai-enable-toggle').checked;
+        }
+
+        function setAIDifficulty(diff) {
+            gameSettings.aiDifficulty = diff;
+            ['easy', 'normal', 'hard'].forEach(d => {
+                const btn = document.getElementById(`btn-ai-${d}`);
+                if (d === diff) {
+                    btn.className = "py-1.5 rounded-lg border border-amber-500 bg-amber-500/20 text-amber-300 text-[11px] font-bold";
+                } else {
+                    btn.className = "py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 text-[11px] font-bold";
+                }
+            });
+        }
+
+        function applySettingsAndRestart() {
+            gameSettings.variantPharaoh = document.getElementById('variant-pharaoh').checked;
+            gameSettings.variantCombo = document.getElementById('variant-combo').checked;
+            gameSettings.variantSecret = document.getElementById('variant-secret').checked;
+
+            closeModal('settings-modal');
+            resetGame();
+        }
+
+        function resetGame() {
+            initGame();
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // --- 15. MAIN RENDER & ANIMATION LOOP ---
+        function animate(time) {
+            requestAnimationFrame(animate);
+            TWEEN.update();
+            controls.update();
+
+            // Torch light subtle flame flicker
+            if (torchLights.length > 0) {
+                const flicker = Math.sin(time * 0.006) * 0.15 + (Math.random() - 0.5) * 0.08;
+                torchLights.forEach(t => {
+                    t.intensity = 0.65 + flicker;
+                });
+            }
+
+            // Slowly drift golden sand dust motes upwards
+            if (dustParticles) {
+                const pos = dustParticles.geometry.attributes.position.array;
+                for (let i = 1; i < pos.length; i += 3) {
+                    pos[i] += 0.008;
+                    if (pos[i] > 11) pos[i] = -0.5;
+                }
+                dustParticles.geometry.attributes.position.needsUpdate = true;
+                dustParticles.rotation.y += 0.0006;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // Window Load Bootstrapper
+        window.onload = function() {
+            init3D();
+            initGame();
+        };
+
+    </script>
+</body>
+</html>
